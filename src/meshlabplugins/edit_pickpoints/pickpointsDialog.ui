@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>563</width>
+    <width>598</width>
     <height>559</height>
    </rect>
   </property>
@@ -32,7 +32,7 @@
          <item>
           <widget class="QRadioButton" name="pickPointModeRadioButton">
            <property name="text">
-            <string>Pick Point</string>
+            <string>Pick</string>
            </property>
            <property name="checked">
             <bool>true</bool>
@@ -42,14 +42,21 @@
          <item>
           <widget class="QRadioButton" name="movePointRadioButton">
            <property name="text">
-            <string>Move Point</string>
+            <string>Move</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QRadioButton" name="selectPointRadioButton">
            <property name="text">
-            <string>Select Point</string>
+            <string>Select</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="drawLineRadioButton">
+           <property name="text">
+            <string>Draw</string>
            </property>
           </widget>
          </item>

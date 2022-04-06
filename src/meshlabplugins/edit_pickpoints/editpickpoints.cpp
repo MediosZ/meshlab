@@ -47,7 +47,7 @@ using namespace vcg;
 #define PI 3.14159265
 
 
-EditPickPointsPlugin::EditPickPointsPlugin()
+EditPickPointsPlugin::EditPickPointsPlugin():rubberband(Color4b(255, 170, 85, 11)), measureband(Color4b(85, 170, 255, 11)), was_ready(false)
 {
 	// initialize to false so we don't end up collecting some weird point in the beginning
 	registerPoint = false;
@@ -56,7 +56,9 @@ EditPickPointsPlugin::EditPickPointsPlugin()
 	pickPointsDialog = 0;
 	currentModel = 0;
 
-	overrideCursorShape = 0;
+    overrideCursorShape = 0;
+    measures.clear();
+    mName = 0;
 }
 
 //Constants
@@ -70,79 +72,135 @@ const QString EditPickPointsPlugin::info()
 //called
 void EditPickPointsPlugin::decorate(MeshModel &mm, GLArea *gla, QPainter *painter)
 {
-	//qDebug() << "Decorate " << mm.fileName.c_str() << " ..." << mm.cm.fn;
+    if(pickPointsDialog->getMode() == PickPointsDialog::DRAW_LINE) {
+        float measuredDistance = -1.0;
 
-	if (gla != glArea || mm.cm.fn < 1)
-	{
-		//qDebug() << "GLarea is different or no faces!!! ";
-		return;
-	}
+        rubberband.Render(gla);
+
+        if(rubberband.IsReady())
+        {
+          Point3f a,b;
+          rubberband.GetPoints(a,b);
+          measuredDistance = Distance(a, b);
+
+          suspendEditToggle();
+          rubberband.Reset();
+
+          measure newM;
+          newM.ID = QString("M") + QString::number(mName++);
+          newM.startP = a;
+          newM.endP = b;
+          newM.length = measuredDistance;
+          measures.push_back(newM);
+
+          this->log(GLLogStream::FILTER, "Distance %s: %f", newM.ID.toStdString().c_str(), measuredDistance);
+        }
+
+        for (size_t mind = 0; mind<measures.size(); mind++)
+        {
+            rubberband.RenderLine(gla, measures[mind].startP, measures[mind].endP);
+            vcg::glLabel::render(painter, measures[mind].endP, QString("%1: %2").arg(measures[mind].ID).arg(measures[mind].length));
+        }
+
+        QString instructions;
+        instructions = "C to clear, P to print, S to save";
+
+        QString savedmeasure = "<br>";
+        for (size_t mind = 0; mind<measures.size(); mind++)
+        {
+            savedmeasure.append(QString("%1 - %2<br>").arg(measures[mind].ID).arg(measures[mind].length));
+        }
+
+        if (measures.size() == 0)
+          this->realTimeLog("Point to Point Measure", mm.shortName(),
+              " -- "
+              );
+        else
+          this->realTimeLog("Point to Point Measure", mm.shortName(),
+              (instructions + savedmeasure).toStdString().c_str()
+              );
+
+        assert(!glGetError());
+    }
+    else {
+        //qDebug() << "Decorate " << mm.fileName.c_str() << " ..." << mm.cm.fn;
+
+        if (gla != glArea || mm.cm.fn < 1)
+        {
+            //qDebug() << "GLarea is different or no faces!!! ";
+            return;
+        }
 
 
-	//make sure we picking points on the right meshes!
-	if (&mm != currentModel) {
-		//now that were are ending tell the dialog to save any points it has to metadata
-		pickPointsDialog->savePointsToMetaData();
+        //make sure we picking points on the right meshes!
+        if (&mm != currentModel) {
+            //now that were are ending tell the dialog to save any points it has to metadata
+            pickPointsDialog->savePointsToMetaData();
 
-		//set the new mesh model
-		pickPointsDialog->setCurrentMeshModel(&mm, gla);
-		currentModel = &mm;
-	}
+            //set the new mesh model
+            pickPointsDialog->setCurrentMeshModel(&mm, gla);
+            currentModel = &mm;
+        }
 
-	//We have to calculate the position here because it doesn't work in the mouseEvent functions for some reason
-	Point3m pickedPoint;
+        //We have to calculate the position here because it doesn't work in the mouseEvent functions for some reason
+        Point3m pickedPoint;
 
-	if (moveSelectPoint)
-	{
-		/* qDebug("Found point for move %i %i -> %f %f %f",
-				currentMousePosition.x(),
-				currentMousePosition.y(),
-				pickedPoint[0], pickedPoint[1], pickedPoint[2]); */
+        if (moveSelectPoint)
+        {
+            /* qDebug("Found point for move %i %i -> %f %f %f",
+                    currentMousePosition.x(),
+                    currentMousePosition.y(),
+                    pickedPoint[0], pickedPoint[1], pickedPoint[2]); */
 
-				//let the dialog know that this was the point picked in case it wants the information
-		bool picked = Pick<Point3m>(currentMousePosition.x(), currentMousePosition.y(), pickedPoint);
-		pickPointsDialog->selectOrMoveThisPoint(pickedPoint);
+                    //let the dialog know that this was the point picked in case it wants the information
+            bool picked = Pick<Point3m>(currentMousePosition.x(), currentMousePosition.y(), pickedPoint);
+            pickPointsDialog->selectOrMoveThisPoint(pickedPoint);
 
-		moveSelectPoint = false;
-	}
-	else
-	{
-		if (registerPoint)
-		{
-			 /*qDebug("Found point for add %i %i -> %f %f %f",
-					currentMousePosition.x(),
-					currentMousePosition.y(),
-					pickedPoint[0], pickedPoint[1], pickedPoint[2]); */
+            moveSelectPoint = false;
+        }
+        else
+        {
+            if (registerPoint)
+            {
+                 /*qDebug("Found point for add %i %i -> %f %f %f",
+                        currentMousePosition.x(),
+                        currentMousePosition.y(),
+                        pickedPoint[0], pickedPoint[1], pickedPoint[2]); */
 
 
-					//find the normal of the face we just clicked
-			bool picked = Pick<Point3m>(currentMousePosition.x(), currentMousePosition.y(), pickedPoint);
-			std::vector<CFaceO*> face;
-			int result = GLPickTri<CMeshO>::PickVisibleFace(currentMousePosition.x(), currentMousePosition.y(), mm.cm, face);
+                        //find the normal of the face we just clicked
+                bool picked = Pick<Point3m>(currentMousePosition.x(), currentMousePosition.y(), pickedPoint);
+                std::vector<CFaceO*> face;
+                int result = GLPickTri<CMeshO>::PickVisibleFace(currentMousePosition.x(), currentMousePosition.y(), mm.cm, face);
 
-			if ((result == 0) || (face[0] == NULL)) {
-				qDebug() << "find nearest face failed!";
-			}
-			else
-			{
-				CFaceO::NormalType faceNormal = face[0]->N();
-				//qDebug() << "found face normal: " << faceNormal[0] << faceNormal[1] << faceNormal[2];
+                if ((result == 0) || (face[0] == NULL)) {
+                    qDebug() << "find nearest face failed!";
+                }
+                else
+                {
+                    CFaceO::NormalType faceNormal = face[0]->N();
+                    //qDebug() << "found face normal: " << faceNormal[0] << faceNormal[1] << faceNormal[2];
 
-				//if we didn't find a face then don't add the point because the user was probably
-				//clicking on another mesh opened inside the glarea
-				pickPointsDialog->addMoveSelectPoint(pickedPoint, faceNormal);
-			}
+                    //if we didn't find a face then don't add the point because the user was probably
+                    //clicking on another mesh opened inside the glarea
+                    pickPointsDialog->addMoveSelectPoint(pickedPoint, faceNormal);
+                }
 
-			registerPoint = false;
-		}
-	}
-
+                registerPoint = false;
+            }
+        }
+    }
+    rubberband.Render(gla);
+    for (size_t mind = 0; mind<measures.size(); mind++)
+    {
+        rubberband.RenderLine(gla, measures[mind].startP, measures[mind].endP);
+        vcg::glLabel::render(painter, measures[mind].endP, QString("%1: %2").arg(measures[mind].ID).arg(measures[mind].length));
+    }
 	drawPickedPoints(pickPointsDialog->getPickedPointTreeWidgetItemVector(), mm.cm.bbox, painter);
 }
 
 bool EditPickPointsPlugin::startEdit(MeshModel & mm, GLArea * gla, MLSceneGLSharedDataContext* /*cont*/)
-{
-	//qDebug() << "StartEdit Pick Points: " << mm.fileName.c_str() << " ..." << mm.cm.fn;
+{	//qDebug() << "StartEdit Pick Points: " << mm.fileName.c_str() << " ..." << mm.cm.fn;
 
 	//if there are no faces then we can't do anything with this plugin
 	if (mm.cm.fn < 1)
@@ -180,6 +238,12 @@ bool EditPickPointsPlugin::startEdit(MeshModel & mm, GLArea * gla, MLSceneGLShar
 
 	//show the dialog
 	pickPointsDialog->show();
+    // connect(this, SIGNAL(suspendEditToggle()),gla,SLOT(suspendEditToggle()) );
+
+    // measures.clear();
+    // mName = 0;
+    rubberband.Reset();
+
 	return true;
 }
 
@@ -201,6 +265,9 @@ void EditPickPointsPlugin::endEdit(MeshModel & mm, GLArea * /*gla*/, MLSceneGLSh
 
 		this->glArea = 0;
 	}
+
+    rubberband.Reset();
+
 }
 
 void EditPickPointsPlugin::mousePressEvent(QMouseEvent *event, MeshModel &mm, GLArea *gla)
@@ -209,7 +276,13 @@ void EditPickPointsPlugin::mousePressEvent(QMouseEvent *event, MeshModel &mm, GL
 
 	//if there are no faces then we can't do anything with this plugin
 	if (mm.cm.fn < 1) return;
-
+    if (pickPointsDialog->getMode() == PickPointsDialog::DRAW_LINE) {
+        if(rubberband.IsReady())
+        {
+          rubberband.Reset();
+        }
+        gla->update();
+    }
 	if (Qt::RightButton == event->button() &&
 		pickPointsDialog->getMode() != PickPointsDialog::ADD_POINT) {
 
@@ -228,8 +301,11 @@ void EditPickPointsPlugin::mouseMoveEvent(QMouseEvent *event, MeshModel &mm, GLA
 
 	//if there are no faces then we can't do anything with this plugin
 	if (mm.cm.fn < 1) return;
-
-	if (Qt::RightButton == event->button() &&
+    if (pickPointsDialog->getMode() == PickPointsDialog::DRAW_LINE) {
+        rubberband.Drag(event->pos());
+        gla->update();
+    }
+    else if (Qt::RightButton == event->button() &&
 		pickPointsDialog->getMode() != PickPointsDialog::ADD_POINT) {
 
 		//qDebug() << "mouse move left button and move mode: ";
@@ -247,9 +323,12 @@ void EditPickPointsPlugin::mouseReleaseEvent(QMouseEvent *event, MeshModel &mm, 
 
 	//if there are no faces then we can't do anything with this plugin
 	if (mm.cm.fn < 1) return;
-
+    if (pickPointsDialog->getMode() == PickPointsDialog::DRAW_LINE) {
+        rubberband.Pin(event->pos());
+        gla->update();
+    }
 	//only add points for the left button
-	if (Qt::RightButton == event->button()) { 
+    else if (Qt::RightButton == event->button()) {
 		currentMousePosition = QPoint(QT2VCG_X(gla, event), QT2VCG_Y(gla, event));//event->pos();
 
 		//set flag that we need to add a new point

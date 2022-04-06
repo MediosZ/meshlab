@@ -32,7 +32,6 @@
 #include <common/ml_document/mesh_model.h>
 #include <meshlab/rich_parameter_gui/richparameterlistframe.h>
 #include <meshlab/rich_parameter_gui/richparameterlistdialog.h>
-
 #include "editpickpoints.h"
 #include "pickpointsDialog.h"
 
@@ -240,6 +239,7 @@ PickPointsDialog::PickPointsDialog(EditPickPointsPlugin *plugin,
 	connect(ui.pickPointModeRadioButton, SIGNAL(toggled(bool)), this, SLOT(togglePickMode(bool)));
 	connect(ui.movePointRadioButton, SIGNAL(toggled(bool)), this, SLOT(toggleMoveMode(bool)));
 	connect(ui.selectPointRadioButton, SIGNAL(toggled(bool)), this, SLOT(toggleSelectMode(bool)));
+    connect(ui.drawLineRadioButton, SIGNAL(toggled(bool)), this, SLOT(toggleDrawMode(bool)));
 	connect(ui.saveButton, SIGNAL(clicked()), this, SLOT(savePointsToFile()));
 	connect(ui.loadPointsButton, SIGNAL(clicked()), this, SLOT(askUserForFileAndLoadPoints()));
 	connect(ui.removeAllPointsButton, SIGNAL(clicked()), this, SLOT(clearPointsButtonClicked()));
@@ -363,7 +363,7 @@ void PickPointsDialog::selectOrMoveThisPoint(Point3m point) {
 	}
 
 	//if we found an itme
-	if (NULL != closestItem) {
+    if (NULL != closestItem && currentMode == SELECT_POINT) {
 		itemToMove = closestItem;
 		//qDebug() << "Try to move: " << closestItem->getName();
 	}
@@ -737,6 +737,19 @@ void PickPointsDialog::toggleSelectMode(bool checked)
 		//make radio button reflect the change
 		ui.selectPointRadioButton->setChecked(true);
 	}
+}
+
+void PickPointsDialog::toggleDrawMode(bool checked)
+{
+    if (checked)
+    {
+        QApplication::setOverrideCursor(QCursor(Qt::PointingHandCursor));
+
+        qDebug() << "select mode: draw line!";
+        currentMode = DRAW_LINE;
+        //make radio button reflect the change
+        ui.drawLineRadioButton->setChecked(true);
+    }
 }
 
 PickedPoints * PickPointsDialog::getPickedPoints()

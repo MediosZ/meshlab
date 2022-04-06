@@ -32,6 +32,19 @@
 
 #include <common/plugins/interfaces/edit_plugin.h>
 #include "pickpointsDialog.h"
+#include <wrap/gui/rubberband.h>
+
+//--------------------------------------
+class measure
+{
+public:
+    QString ID;
+    vcg::Point3f startP;
+    vcg::Point3f endP;
+    float length;
+};
+//--------------------------------------
+
 
 class EditPickPointsPlugin : public QObject, public EditTool
 {
@@ -81,6 +94,16 @@ private:
 	MeshModel *currentModel;
 	
 	int overrideCursorShape;
+
+    QFont qFont;
+    vcg::Rubberband rubberband;
+    vcg::Rubberband measureband;
+    bool was_ready;
+
+    int mName;
+    std::vector<measure>	measures;
+signals:
+  void suspendEditToggle();
 };
 	
 #endif

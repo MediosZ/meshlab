@@ -11,7 +11,8 @@ set(SOURCES
 	../../meshlab/gui_utils/clickable_label.cpp
 	../../meshlab/rich_parameter_gui/richparameterwidgets.cpp
 	../../meshlab/rich_parameter_gui/richparameterlistframe.cpp
-	../../meshlab/rich_parameter_gui/richparameterlistdialog.cpp)
+        ../../meshlab/rich_parameter_gui/richparameterlistdialog.cpp
+        ${VCGDIR}/wrap/gui/rubberband.cpp)
 
 set(HEADERS
 	edit_pickpoints_factory.h

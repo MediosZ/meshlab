@@ -104,7 +104,7 @@ public:
 
 	~PickPointsDialog();
 	
-	enum Mode { ADD_POINT, MOVE_POINT, SELECT_POINT };
+    enum Mode { ADD_POINT, MOVE_POINT, SELECT_POINT, DRAW_LINE };
 	
 	//do something with the point that was just picked(could be add,moving or select)
 	void addMoveSelectPoint(Point3m point, CMeshO::FaceType::NormalType faceNormal);
@@ -226,6 +226,8 @@ private slots:
 	
 	//change mode to select mode
 	void toggleSelectMode(bool checked);
+
+    void toggleDrawMode(bool checked);
 	
 	//save the points to a file
 	void savePointsToFile();
